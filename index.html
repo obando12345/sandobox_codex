@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>積立投資シミュレータ</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  label { display: block; margin-top: 10px; }
+  input { width: 100%; padding: 8px; box-sizing: border-box; }
+  button { margin-top: 15px; padding: 10px; width: 100%; }
+  canvas { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<h1>積立投資シミュレータ</h1>
+<label>月の積立金額(万円)<input type="number" id="monthly" placeholder="例:5"></label>
+<label>年利(%)<input type="number" id="rate" placeholder="例:5"></label>
+<label>積立年数<input type="number" id="years" placeholder="例:10"></label>
+<label>目標金額(万円)<input type="number" id="target" placeholder="例:1000"></label>
+<button id="calc">計算</button>
+<p id="result"></p>
+<canvas id="chart"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+function futureValue(p, r, n) {
+  return p * (Math.pow(1 + r, n) - 1) / r;
+}
+function paymentForTarget(f, r, n) {
+  return f * r / (Math.pow(1 + r, n) - 1);
+}
+function periodsForTarget(p, r, f) {
+  return Math.log(f * r / p + 1) / Math.log(1 + r);
+}
+function rateForTarget(p, n, f) {
+  let low = 0, high = 1, mid;
+  for (let i = 0; i < 100; i++) {
+    mid = (low + high) / 2;
+    let val = futureValue(p, mid, n);
+    if (val > f) high = mid; else low = mid;
+  }
+  return mid;
+}
+function computeSchedule(p, r, n) {
+  let balance = 0, data = [];
+  for (let i=1; i<=n; i++) {
+    balance = balance * (1 + r) + p;
+    data.push(balance);
+  }
+  return data;
+}
+document.getElementById('calc').onclick = function() {
+  let m = parseFloat(document.getElementById('monthly').value);
+  let y = parseFloat(document.getElementById('rate').value);
+  let yrs = parseFloat(document.getElementById('years').value);
+  let t = parseFloat(document.getElementById('target').value);
+  const empty = [isNaN(m), isNaN(y), isNaN(yrs), isNaN(t)].filter(Boolean).length;
+  if (empty !== 1) {
+    document.getElementById('result').textContent = '4項目中1項目だけ空欄にしてください';
+    return;
+  }
+  let r = y / 100 / 12;
+  let n = yrs * 12;
+  let resultText = '';
+  if (isNaN(m)) {
+    m = paymentForTarget(t*10000, r, n) / 10000;
+    resultText = '必要な月の積立金額: ' + m.toFixed(2) + ' 万円';
+  } else if (isNaN(y)) {
+    r = rateForTarget(m*10000, n, t*10000);
+    y = r * 12 * 100;
+    resultText = '必要な年利: ' + y.toFixed(2) + ' %';
+  } else if (isNaN(yrs)) {
+    n = periodsForTarget(m*10000, r, t*10000);
+    yrs = n / 12;
+    resultText = '必要な積立年数: ' + yrs.toFixed(2) + ' 年';
+  } else if (isNaN(t)) {
+    t = futureValue(m*10000, r, n) / 10000;
+    resultText = '到達する金額: ' + t.toFixed(2) + ' 万円';
+  }
+  document.getElementById('result').textContent = resultText;
+  if (!isNaN(m) && !isNaN(r) && !isNaN(n)) {
+    const schedule = computeSchedule(m*10000, r, n).map(v => v/10000);
+    const labels = Array.from({length: schedule.length}, (_, i) => i+1);
+    if (window.myChart) window.myChart.destroy();
+    window.myChart = new Chart(document.getElementById('chart'), {
+      type: 'line',
+      data: { labels: labels, datasets: [{ label: '資産額(万円)', data: schedule, borderColor: 'blue', fill: false }] },
+      options: { scales: { x: { title: { display: true, text: '月' } }, y: { title: { display: true, text: '万円' } } } }
+    });
+  }
+};
+</script>
+</body>
+</html>
