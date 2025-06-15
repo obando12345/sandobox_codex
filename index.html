@@ -79,12 +79,27 @@ document.getElementById('calc').onclick = function() {
   }
   document.getElementById('result').textContent = resultText;
   if (!isNaN(m) && !isNaN(r) && !isNaN(n)) {
-    const schedule = computeSchedule(m*10000, r, n).map(v => v/10000);
-    const labels = Array.from({length: schedule.length}, (_, i) => i+1);
+    const maxMonths = 360;
+    const fullSchedule = computeSchedule(m*10000, r, maxMonths).map(v => v/10000);
+    const actualData = [];
+    const predictedData = [];
+    for (let i = 0; i < maxMonths; i++) {
+      if (i < n) {
+        actualData.push(fullSchedule[i]);
+        predictedData.push(null);
+      } else {
+        actualData.push(null);
+        predictedData.push(fullSchedule[i]);
+      }
+    }
+    const labels = Array.from({length: maxMonths}, (_, i) => i+1);
     if (window.myChart) window.myChart.destroy();
     window.myChart = new Chart(document.getElementById('chart'), {
       type: 'line',
-      data: { labels: labels, datasets: [{ label: '資産額(万円)', data: schedule, borderColor: 'blue', fill: false }] },
+      data: { labels: labels, datasets: [
+        { label: '資産額(実績)', data: actualData, borderColor: 'blue', fill: false },
+        { label: '資産額(予測)', data: predictedData, borderColor: 'orange', borderDash: [5,5], fill: false }
+      ] },
       options: { scales: { x: { title: { display: true, text: '月' } }, y: { title: { display: true, text: '万円' } } } }
     });
   }
